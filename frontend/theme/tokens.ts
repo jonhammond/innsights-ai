@@ -168,7 +168,7 @@ export const light: Palette = {
   table: tableColors,
 };
 
-export const radius = { button: 5, ask: 6, logo: 7, input: 8, card: 12, pill: 999 } as const;
+export const radius = { button: 5, ask: 6, logo: 7, input: 8, rail: 9, card: 12, pill: 999 } as const;
 
 export const space = {
   gap: 16,
