@@ -45,7 +45,8 @@ Rules:
 - Use current_date for relative dates (e.g. last 30 days: metric_date >= current_date - 30).
 - Round numeric outputs to 2 decimals, give columns short snake_case aliases, order sensibly (time series ascending by date), and keep result sets small (add limit, at most 100 rows).
 - recommended_chart: line for time series, bar for category comparisons, kpi for a single-row single-value answer, table otherwise.
-- report_title: a short human-readable title.`;
+- report_title: a short human-readable title.
+- caveat: optional single sentence a reader needs before trusting the result, e.g. a requested metric is not tracked so a proxy is used, or the period is partial (month-to-date). Leave empty when there is none.`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
@@ -53,6 +54,7 @@ const RESPONSE_SCHEMA = {
     sql: { type: "STRING" },
     recommended_chart: { type: "STRING", enum: [...CHARTS] },
     report_title: { type: "STRING" },
+    caveat: { type: "STRING" },
   },
   required: ["sql", "recommended_chart", "report_title"],
 };
@@ -154,6 +156,7 @@ type GeminiOutput = {
   sql: string;
   recommended_chart: (typeof CHARTS)[number];
   report_title: string;
+  caveat?: string;
 };
 
 async function callGemini(
@@ -198,6 +201,7 @@ async function callGemini(
     ) {
       throw new Error("shape");
     }
+    out.caveat = typeof out.caveat === "string" ? out.caveat.trim() : "";
     return out as GeminiOutput;
   } catch {
     throw new ApiError(
@@ -281,9 +285,11 @@ async function handle(
   }
 
   // Execute (own timeout; the RPC's statement_timeout does not cover itself)
+  const rpcStart = performance.now();
   const { data: rows, error: rpcErr } = await supabase
     .rpc("run_hotel_analytics", { sql_query: check.sql })
     .abortSignal(AbortSignal.timeout(RPC_TIMEOUT_MS));
+  const durationMs = Math.round(performance.now() - rpcStart);
   if (rpcErr) {
     console.error("run_hotel_analytics failed", rpcErr.code, rpcErr.message);
     const timedOut = /abort|timeout/i.test(rpcErr.message ?? "");
@@ -300,6 +306,8 @@ async function handle(
       chart: gen.recommended_chart,
       title: gen.report_title,
       rows: rows ?? [],
+      caveat: gen.caveat || null,
+      duration_ms: durationMs,
     },
     200,
     cors,

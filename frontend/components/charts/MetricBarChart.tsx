@@ -1,0 +1,130 @@
+import { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { VictoryAxis, VictoryBar, VictoryChart } from "victory";
+import { formatByUnit, MetricSeries } from "../../lib/resultMapping";
+import { fonts, tabular } from "../../theme/tokens";
+import { useTheme } from "../../theme/useTheme";
+import { Card } from "../Card";
+
+const PLOT_H = 140;
+const PAD = { top: 6, bottom: 22, left: 48, right: 0 };
+
+// Short axis ticks: "$2.5M", "$200", "50%" — the full value lives in the table/answer.
+function tickLabel(v: number, unit: MetricSeries["unit"]): string {
+  if (unit === "percent") return `${Math.round(v)}%`;
+  if (unit === "currency") return Math.abs(v) >= 1000 ? formatByUnit(v, unit) : `$${Math.round(v)}`;
+  return formatByUnit(v, unit);
+}
+const HEIGHT = PLOT_H + PAD.top + PAD.bottom;
+const GAP = 5;
+
+// Smallest "nice" (1/2/2.5/5/10 x 10^k) value >= v.
+function niceCeil(v: number): number {
+  if (!(v > 0)) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  const m = v / pow;
+  const step = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+  return step * pow;
+}
+
+export function MetricBarChart({ series }: { series: MetricSeries }) {
+  const { t } = useTheme();
+  const [width, setWidth] = useState(0);
+  const { values, labels, color, partialLast, projection, unit } = series;
+  const n = values.length;
+  const max = niceCeil(Math.max(0, ...values, projection ?? 0));
+  const plotW = Math.max(0, width - PAD.left - PAD.right);
+  const barWidth = n > 0 ? Math.max(1, (plotW - GAP * (n - 1)) / n) : 1;
+  const barColors = t.kpi[color];
+  const tickLabels = {
+    fontFamily: fonts.mono400,
+    fontSize: 10,
+    fill: t.text.tick,
+    padding: 6,
+  };
+
+  return (
+    <Card style={styles.card}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: t.text.primary }]}>{series.title}</Text>
+        <Text style={[styles.note, { color: t.text.subtle }]}>{series.note}</Text>
+      </View>
+      <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        {width > 0 && n > 0 && (
+          <VictoryChart
+            width={width}
+            height={HEIGHT}
+            padding={PAD}
+            domain={{ x: [0.5, n + 0.5], y: [0, max] }}
+            domainPadding={0}
+          >
+            <VictoryAxis
+              dependentAxis
+              tickValues={[0, max / 2, max]}
+              tickFormat={(v: number) => tickLabel(v, unit)}
+              style={{
+                axis: { stroke: "transparent" },
+                grid: { stroke: "none" },
+                ticks: { stroke: "transparent" },
+                tickLabels: { ...tickLabels, textAnchor: "end" },
+              }}
+            />
+            <VictoryBar
+              data={values.map((y, i) => ({ x: i + 1, y }))}
+              barWidth={barWidth}
+              cornerRadius={0}
+              style={{
+                data: {
+                  fill: ({ index }: { index?: number | string }) =>
+                    partialLast && Number(index) === n - 1 ? barColors.barPartial : barColors.bar,
+                },
+              }}
+            />
+            {projection != null && (
+              <VictoryBar
+                data={[{ x: n, y: projection }]}
+                barWidth={barWidth}
+                cornerRadius={0}
+                style={{
+                  data: {
+                    fill: "transparent",
+                    stroke: barColors.bar,
+                    strokeDasharray: "3,3",
+                    strokeWidth: 1,
+                  },
+                }}
+              />
+            )}
+            <VictoryAxis
+              tickValues={values.map((_, i) => i + 1)}
+              tickFormat={(i: number) => labels[i - 1] ?? ""}
+              style={{
+                axis: { stroke: t.border.axis, strokeWidth: 1 },
+                grid: { stroke: "none" },
+                ticks: { stroke: "transparent" },
+                tickLabels: {
+                  fontFamily: fonts.sans400,
+                  fontSize: 10,
+                  fill: t.text.dim,
+                  padding: 6,
+                },
+              }}
+            />
+          </VictoryChart>
+        )}
+      </View>
+    </Card>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: { paddingTop: 16, paddingHorizontal: 18, paddingBottom: 14 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginBottom: 14,
+  },
+  title: { fontFamily: fonts.sans700, fontSize: 13 },
+  note: { fontFamily: fonts.mono400, fontSize: 11, ...tabular },
+});
