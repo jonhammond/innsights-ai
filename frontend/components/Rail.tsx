@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Pressable, PressableStateCallbackType, StyleSheet, Text, View } from "react-native";
-import { fonts, space } from "../theme/tokens";
+import { fonts, radius, space } from "../theme/tokens";
 import { Logo } from "./Logo";
 import { useTheme } from "../theme/useTheme";
 
@@ -36,7 +36,13 @@ export function Rail({ selectedCount, onOpenProperties, scheme, onToggleTheme }:
         onPress={onOpenProperties}
         accessibilityRole="button"
         accessibilityLabel="Select properties"
-        style={[styles.circle, { backgroundColor: t.accent.blue }]}
+        style={(state: PressableStateCallbackType) => {
+          const hovered = (state as PressableStateCallbackType & { hovered?: boolean }).hovered;
+          return [
+            styles.square,
+            { backgroundColor: hovered || state.pressed ? t.accent.blueHover : t.accent.blue },
+          ];
+        }}
       >
         <Feather name="list" size={16} color={t.text.onAccent} />
         <View style={[styles.badge, { backgroundColor: t.accent.pink }]}>
@@ -50,12 +56,12 @@ export function Rail({ selectedCount, onOpenProperties, scheme, onToggleTheme }:
         style={(state: PressableStateCallbackType) => {
           const hovered = (state as PressableStateCallbackType & { hovered?: boolean }).hovered;
           return [
-            styles.circle,
-            { backgroundColor: hovered || state.pressed ? t.bg.card : "transparent" },
+            styles.square,
+            { backgroundColor: t.accent.violet, opacity: hovered || state.pressed ? 0.85 : 1 },
           ];
         }}
       >
-        <Feather name={scheme === "dark" ? "sun" : "moon"} size={16} color={t.text.subtle} />
+        <Feather name={scheme === "dark" ? "sun" : "moon"} size={16} color={t.text.onAccent} />
       </Pressable>
     </View>
   );
@@ -75,20 +81,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 14,
   },
-  circle: {
+  square: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: radius.rail,
     alignItems: "center",
     justifyContent: "center",
   },
   badge: {
     position: "absolute",
-    top: -3,
-    right: -3,
-    width: 16,
+    top: -6,
+    right: -6,
+    minWidth: 16,
     height: 16,
-    borderRadius: 8,
+    paddingHorizontal: 4,
+    borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
   },
