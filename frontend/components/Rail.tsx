@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
-import { fonts, radius, space } from "../theme/tokens";
+import { StyleSheet, View } from "react-native";
+import { space } from "../theme/tokens";
+import { Logo } from "./Logo";
 import { useTheme } from "../theme/useTheme";
 
 type Props = { active?: "dashboard" | "history" | "settings" };
@@ -24,9 +25,7 @@ export function Rail({ active = "dashboard" }: Props) {
         },
       ]}
     >
-      <View style={[styles.logo, { backgroundColor: t.accent.logo }]}>
-        <Text style={[styles.logoText, { color: t.text.onAccent }]}>I</Text>
-      </View>
+      <Logo size={30} />
       <View
         style={
           wide
@@ -63,14 +62,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 14,
   },
-  logo: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.logo,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoText: { fontFamily: fonts.sans700, fontSize: 15 },
   circle: {
     width: 38,
     height: 38,
