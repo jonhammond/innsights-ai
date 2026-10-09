@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "vercel@anthropic-plugin-directory": true,
+    "expo@anthropic-plugin-directory": true
+  }
+}
