@@ -37,6 +37,12 @@ begin
   if q !~* '^(select|with)([[:space:]]|\(|$)' then
     raise exception 'only SELECT or WITH queries are allowed';
   end if;
+  -- Quoted and Unicode-escaped identifiers (e.g. u&"s\0065t_config") could
+  -- spell a denied function name in a form the regex below never sees. The
+  -- schema is all lowercase, so legitimate queries never need them.
+  if position('"' in q) > 0 or q ~* 'u&' then
+    raise exception 'quoted or unicode-escaped identifiers are not allowed';
+  end if;
   -- Deny-list: set_config('role', ...) would undo SET LOCAL ROLE (SET ROLE
   -- permission follows the session user, not the current role), and the
   -- query_to_xml family executes a second SQL string that would bypass these
@@ -54,6 +60,12 @@ begin
 
   execute format('select jsonb_agg(t) from (select * from (%s) q limit 500) t', q)
     into result;
+
+  -- Escape detection: if the query somehow undid SET LOCAL ROLE despite the
+  -- checks above, abort so the transaction rolls back.
+  if current_user <> 'analytics_ro' then
+    raise exception 'role escape detected';
+  end if;
 
   return coalesce(result, '[]'::jsonb);
 end;
