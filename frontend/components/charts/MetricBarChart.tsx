@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { VictoryAxis, VictoryBar, VictoryChart } from "victory";
+import {
+  VictoryAxis,
+  VictoryBar,
+  VictoryChart,
+  VictoryTooltip,
+  VictoryVoronoiContainer,
+} from "victory";
 import { formatByUnit, MetricSeries } from "../../lib/resultMapping";
 import { fonts, tabular } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
@@ -42,6 +48,11 @@ export function MetricBarChart({ series }: { series: MetricSeries }) {
     fill: t.text.tick,
     padding: 6,
   };
+  // Full (unabbreviated) value on hover; the partial last bucket also shows its projection.
+  const tooltipText = ({ x, y }: { x: number; y: number }): string | string[] => {
+    const line = `${labels[x - 1] ?? ""}: ${formatByUnit(y, unit)}`;
+    return projection != null && x === n ? [line, `proj ${formatByUnit(projection, unit)}`] : line;
+  };
 
   return (
     <Card style={styles.card}>
@@ -57,6 +68,9 @@ export function MetricBarChart({ series }: { series: MetricSeries }) {
             padding={PAD}
             domain={{ x: [0.5, n + 0.5], y: [0, max] }}
             domainPadding={0}
+            containerComponent={
+              <VictoryVoronoiContainer voronoiDimension="x" voronoiBlacklist={["projection"]} />
+            }
           >
             <VictoryAxis
               dependentAxis
@@ -73,15 +87,31 @@ export function MetricBarChart({ series }: { series: MetricSeries }) {
               data={values.map((y, i) => ({ x: i + 1, y }))}
               barWidth={barWidth}
               cornerRadius={0}
+              labels={({ datum }) => tooltipText(datum)}
+              labelComponent={
+                <VictoryTooltip
+                  constrainToVisibleArea
+                  pointerLength={4}
+                  cornerRadius={0}
+                  flyoutPadding={{ top: 4, bottom: 4, left: 8, right: 8 }}
+                  flyoutStyle={{ fill: t.bg.panel, stroke: t.border.strong, strokeWidth: 1 }}
+                  style={{ fontFamily: fonts.mono400, fontSize: 10, fill: t.text.primary }}
+                />
+              }
               style={{
                 data: {
-                  fill: ({ index }: { index?: number | string }) =>
-                    partialLast && Number(index) === n - 1 ? barColors.barPartial : barColors.bar,
+                  fill: ({ index, active }: { index?: number | string; active?: boolean }) =>
+                    active
+                      ? barColors.line
+                      : partialLast && Number(index) === n - 1
+                        ? barColors.barPartial
+                        : barColors.bar,
                 },
               }}
             />
             {projection != null && (
               <VictoryBar
+                name="projection"
                 data={[{ x: n, y: projection }]}
                 barWidth={barWidth}
                 cornerRadius={0}
