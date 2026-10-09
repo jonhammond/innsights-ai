@@ -25,6 +25,9 @@ function mapError(code: string): string {
   if (code === "unsafe_sql") {
     return "That question produced a query we couldn't safely run — try rephrasing.";
   }
+  if (code === "llm_rate_limited") {
+    return "The model's daily quota is exhausted — try again later.";
+  }
   if (code.startsWith("llm_")) {
     return "The model is unavailable right now — try again shortly.";
   }

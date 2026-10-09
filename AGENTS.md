@@ -2,13 +2,13 @@
 
 ## Project
 
-Hospitality analytics AI demo: natural-language questions → Gemini 3.5 Flash generates SQL → executed read-only in Supabase → KPI tiles / charts / tables. Public (no auth), rate-limited, embedded in a portfolio site via iframe. Plan: `HOSP_DATA_ANALYTICS_APP_PLAN.md` (phases 0–3 done locally; 4 deploy pending; production DB untouched).
+Hospitality analytics AI demo: natural-language questions → Gemini 3.5 Flash-Lite generates SQL → executed read-only in Supabase → KPI tiles / charts / tables. Public (no auth), rate-limited, embedded in a portfolio site via iframe. Plan: `HOSP_DATA_ANALYTICS_APP_PLAN.md` (phases 0–3 done locally; 4 deploy pending; production DB untouched).
 
 ## Boundaries
 
 - All schema work as versioned migrations in `supabase/migrations/`; apply locally with `supabase migration up`. Production apply only via MCP `apply_migration` after explicit user confirmation.
 - Clients never execute SQL directly: the Edge Function (service_role) calls `run_hotel_analytics`, which runs queries as the SELECT-only `analytics_ro` role in a read-only transaction. Keep that layering intact.
-- Secrets live in `supabase/functions/.env` locally (gitignored) and `supabase secrets set` in prod: `GEMINI_API_KEY`, `IP_HASH_SALT`, optional `ALLOWED_ORIGINS`. Names documented in `supabase/functions/.env.example`.
+- Secrets live in `supabase/functions/.env` locally (gitignored) and `supabase secrets set` in prod: `GEMINI_API_KEY`, `IP_HASH_SALT`, optional `ALLOWED_ORIGINS`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`. Names documented in `supabase/functions/.env.example`.
 
 ## Stack
 
@@ -20,7 +20,7 @@ Hospitality analytics AI demo: natural-language questions → Gemini 3.5 Flash g
 
 - Local stack: `supabase start` (Docker), then `supabase migration up`; serve the function with `supabase functions serve text-to-sql --env-file supabase/functions/.env`.
 - Deno not installed on host; run `deno check/test/lint/fmt` via the `denoland/deno` Docker image.
-- Gemini: `gemini-3.5-flash` via `generativelanguage.googleapis.com/v1beta`, key in `x-goog-api-key` header, `responseMimeType: application/json` + `responseSchema`.
+- Gemini: `gemini-3.5-flash-lite` default (`GEMINI_MODEL`), one retry on HTTP 429 with `gemini-3.1-flash-lite` (`GEMINI_FALLBACK_MODEL`, empty disables); free-tier quotas are per project and model, visible only in AI Studio. Via `generativelanguage.googleapis.com/v1beta`, key in `x-goog-api-key` header, `responseMimeType: application/json` + `responseSchema`.
 
 ## Design
 

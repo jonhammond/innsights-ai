@@ -1,5 +1,6 @@
 // Supabase Edge Function: text-to-sql
-// POST { prompt } -> Gemini 2.5 Flash -> validated read-only SQL -> run_hotel_analytics RPC.
+// POST { prompt } -> Gemini Flash-Lite (GEMINI_MODEL, fallback GEMINI_FALLBACK_MODEL on 429)
+//   -> validated read-only SQL -> run_hotel_analytics RPC.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { validateSql } from "./sql_guard.ts";
 import { CHARTS, SYSTEM_PROMPT } from "./schema_prompt.ts";
@@ -8,8 +9,12 @@ const RATE_LIMIT_PER_HOUR = 20;
 const MAX_PROMPT_CHARS = 500;
 const GEMINI_TIMEOUT_MS = 20_000;
 const RPC_TIMEOUT_MS = 10_000;
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent";
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.1-flash-lite";
+
+function geminiUrl(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
 
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",
@@ -135,13 +140,13 @@ type GeminiOutput = {
   caveat?: string;
 };
 
-async function callGemini(
+async function geminiRequest(
+  model: string,
   prompt: string,
   apiKey: string,
-): Promise<GeminiOutput> {
-  let res: Response;
+): Promise<Response> {
   try {
-    res = await fetch(GEMINI_URL, {
+    return await fetch(geminiUrl(model), {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
@@ -160,6 +165,30 @@ async function callGemini(
       502,
       "llm_unavailable",
       "Model request failed or timed out",
+    );
+  }
+}
+
+async function callGemini(
+  prompt: string,
+  apiKey: string,
+  model: string,
+  fallbackModel: string,
+): Promise<GeminiOutput> {
+  let res = await geminiRequest(model, prompt, apiKey);
+  if (res.status === 429 && fallbackModel && fallbackModel !== model) {
+    await res.body?.cancel();
+    console.warn(
+      `gemini ${model} returned 429; retrying with ${fallbackModel}`,
+    );
+    res = await geminiRequest(fallbackModel, prompt, apiKey);
+  }
+  if (res.status === 429) {
+    await res.body?.cancel();
+    throw new ApiError(
+      503,
+      "llm_rate_limited",
+      "Model quota exhausted, try again later",
     );
   }
   if (!res.ok) {
@@ -204,6 +233,10 @@ async function handle(
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
   const salt = Deno.env.get("IP_HASH_SALT");
+  const geminiModel = Deno.env.get("GEMINI_MODEL")?.trim() ||
+    DEFAULT_GEMINI_MODEL;
+  const geminiFallbackModel = Deno.env.get("GEMINI_FALLBACK_MODEL")?.trim() ??
+    DEFAULT_GEMINI_FALLBACK_MODEL;
   if (!supabaseUrl || !serviceKey || !geminiKey || !salt) {
     console.error("missing required environment configuration");
     throw new ApiError(500, "server_misconfigured", "Server is not configured");
@@ -249,7 +282,12 @@ async function handle(
   }
 
   // LLM
-  const gen = await callGemini(prompt, geminiKey);
+  const gen = await callGemini(
+    prompt,
+    geminiKey,
+    geminiModel,
+    geminiFallbackModel,
+  );
   const check = validateSql(gen.sql);
   if (!check.ok) {
     console.warn("rejected generated SQL:", check.reason);
