@@ -35,20 +35,5 @@ these rules without being reminded:
 - Be concise. Give me the answer and the why, not a wall of restated context.
 - Do not repeat large blocks of code or text back to me unless I ask.
 
-## **Always:**
-
-- Run linting and tests before committing
-- List only human authors in git commits
-
-## ⚠️ **Ask First:**
-
-- Before making database changes (schema, RLS policies, Supabase Functions)
-- Before pushing database changes
-
-## ❌ **Never:**
-
-- Force push to main
-- Commit secrets or .env files to the repository
-
 @AGENTS.md
-**NOTE** AI agent context has been primarily centralized into a single file: **[AGENTS.md](AGENTS.md)**.
+**NOTE** AI agent context is centralized in **[AGENTS.md](AGENTS.md)** — project overview, stack, commands, and the Always / Ask First / Never rules live there.

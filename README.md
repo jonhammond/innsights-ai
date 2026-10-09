@@ -1,2 +1,35 @@
 # innsights-ai
-Hospitality analytics demo application that uses AI agent to perform data analytics and render dashboards based on user input
+
+Hospitality analytics demo: ask natural-language questions about a synthetic hotel portfolio; Gemini 2.5 Flash converts them to SQL, Supabase executes them read-only, and the UI renders KPI tiles, charts, and tables.
+
+## Stack
+
+- **DB:** Supabase Postgres — `properties` + `daily_metrics`, nightly `pg_cron` data generator, hardened read-only RPC (`run_hotel_analytics`) behind a privilege-restricted role
+- **API:** Supabase Edge Function `text-to-sql` (Deno) — CORS allow-list, per-IP rate limiting (20/hr), Gemini structured-output, defense-in-depth SQL validation
+- **Frontend (planned):** Expo / React Native Web + victory charts, static export to Vercel
+
+## Local development
+
+```bash
+supabase start                      # local stack (needs Docker)
+supabase migration up               # apply migrations; seed.sql loads on fresh setups
+supabase functions serve text-to-sql --env-file supabase/functions/.env
+```
+
+`supabase/functions/.env` (gitignored) needs `GEMINI_API_KEY` and `IP_HASH_SALT`; see `supabase/functions/.env.example`. Optional: `ALLOWED_ORIGINS` (comma-separated CORS origins beyond localhost defaults).
+
+```bash
+curl -s -X POST http://127.0.0.1:54321/functions/v1/text-to-sql \
+  -H "Authorization: Bearer <local anon key>" -H "Content-Type: application/json" \
+  -d '{"prompt":"Portfolio ADR trend over the last 30 days"}'
+```
+
+## Status
+
+- ✅ Phase 0 — local Supabase environment
+- ✅ Phase 1 — schema, cron generator, hardened RPC, rate-limit log (local; not yet applied to production)
+- ✅ Phase 2 — `text-to-sql` Edge Function (built + unit-tested; live Gemini path pending end-to-end verification)
+- ⬜ Phase 3 — Expo/RN Web frontend
+- ⬜ Phase 4 — Vercel deployment + portfolio iframe embed
+
+Full plan: [HOSP_DATA_ANALYTICS_APP_PLAN.md](HOSP_DATA_ANALYTICS_APP_PLAN.md)

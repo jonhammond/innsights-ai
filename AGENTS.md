@@ -2,13 +2,29 @@
 
 ## Project
 
+Hospitality analytics AI demo: natural-language questions → Gemini 2.5 Flash generates SQL → executed read-only in Supabase → KPI tiles / charts / tables. Public (no auth), rate-limited, embedded in a portfolio site via iframe. Plan: `HOSP_DATA_ANALYTICS_APP_PLAN.md` (phases 0–2 done locally; 3 frontend and 4 deploy pending; production DB untouched).
+
 ## Boundaries
+
+- All schema work as versioned migrations in `supabase/migrations/`; apply locally with `supabase migration up`. Production apply only via MCP `apply_migration` after explicit user confirmation.
+- Clients never execute SQL directly: the Edge Function (service_role) calls `run_hotel_analytics`, which runs queries as the SELECT-only `analytics_ro` role in a read-only transaction. Keep that layering intact.
+- Secrets live in `supabase/functions/.env` locally (gitignored) and `supabase secrets set` in prod: `GEMINI_API_KEY`, `IP_HASH_SALT`, optional `ALLOWED_ORIGINS`. Names documented in `supabase/functions/.env.example`.
 
 ## Stack
 
+- Supabase Postgres: `properties`, `daily_metrics` (RLS, anon SELECT), `ai_query_log` (rate limiting, service_role only), `pg_cron` nightly generator `generate_daily_hotel_metrics(date)`, seed = 3 properties × 90 days.
+- Edge Function `supabase/functions/text-to-sql/` (Deno): CORS allow-list, salted SHA-256 IP hash, 20 req/hr/IP, Gemini structured JSON output (`{sql, recommended_chart, report_title}`), `sql_guard.ts` validation mirroring the RPC checks. Tests: `deno test` in that directory.
+- Frontend (planned): Expo / React Native Web, `victory` charts, static export to Vercel.
+
 ## Core
 
+- Local stack: `supabase start` (Docker), then `supabase migration up`; serve the function with `supabase functions serve text-to-sql --env-file supabase/functions/.env`.
+- Deno not installed on host; run `deno check/test/lint/fmt` via the `denoland/deno` Docker image.
+- Gemini: `gemini-2.5-flash` via `generativelanguage.googleapis.com/v1beta`, key in `x-goog-api-key` header, `responseMimeType: application/json` + `responseSchema`.
+
 ## Design
+
+- Single-screen UI: PromptBar, PresetChips, ResultCanvas (kpi/bar/line/table on `recommended_chart`), SqlAccordion. Mobile-responsive (narrow iframe).
 
 ## **Always:**
 
