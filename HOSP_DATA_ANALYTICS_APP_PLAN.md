@@ -49,6 +49,8 @@ All schema as versioned migrations in `supabase/migrations/`, applied locally fi
 - Dedicated `analytics_ro` role: `NOLOGIN`, `GRANT SELECT` on the two tables only, no other privileges.
 - `run_hotel_analytics(sql_query text) RETURNS jsonb`, `SECURITY DEFINER`, `SET search_path = public`:
   - Reject semicolons, reject anything not starting with `SELECT`/`WITH`.
+  - Deny-list of settings/context readers (`current_setting`, `pg_settings`, `vault`...), `set_config`, second-string executors (`query_to_xml`...) and file/network functions; mirrored in `sql_guard.ts`.
+  - Scrub `request.headers` / `request.cookies` / `request.jwt.claims` (PostgREST exposes the service_role token there) with `set_config(..., '', true)` before dropping privileges.
   - `SET LOCAL ROLE analytics_ro` before `EXECUTE` — real enforcement is role privileges, not string matching.
   - `SET LOCAL statement_timeout = '5s'`; cap result with an outer `LIMIT 500` wrapper.
   - `GRANT EXECUTE` to `service_role` only (Edge Function calls it); **revoke from `anon`** — clients never execute arbitrary SQL directly.
