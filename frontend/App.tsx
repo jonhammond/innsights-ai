@@ -10,7 +10,7 @@ import {
 } from "@expo-google-fonts/instrument-sans";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Platform, ScrollView, View } from "react-native";
 import { AnswerCard } from "./components/AnswerCard";
 import { MetricBarChart } from "./components/charts/MetricBarChart";
@@ -20,6 +20,7 @@ import { Header } from "./components/Header";
 import { KpiSections } from "./components/KpiRow";
 import { PropertyTable } from "./components/PropertyTable";
 import { QuestionPanel } from "./components/QuestionPanel";
+import { ResultBlock } from "./components/ResultBlock";
 import { PropertyPicker } from "./components/PropertyPicker";
 import { Rail } from "./components/Rail";
 import { QueryError, QueryResult, runQuery } from "./lib/api";
@@ -201,6 +202,18 @@ function AppInner() {
 
   const mapped = useMemo(() => (result ? mapResult(result) : null), [result]);
 
+  const scrollRef = useRef<ScrollView>(null);
+  const resultY = useRef(0);
+  const [resultSeq, setResultSeq] = useState(0);
+  useEffect(() => {
+    if (!result) return;
+    setResultSeq((s) => s + 1);
+    const id = requestAnimationFrame(() =>
+      scrollRef.current?.scrollTo({ y: Math.max(0, resultY.current - 12), animated: true }),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [result]);
+
   if (!fontsLoaded) {
     return <View style={{ flex: 1, backgroundColor: t.bg.page }} />;
   }
@@ -239,6 +252,7 @@ function AppInner() {
         onToggleTheme={toggleScheme}
       />
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={[{ flexDirection: "column", gap: space.gap }, pad]}
         keyboardShouldPersistTaps="handled"
@@ -260,31 +274,38 @@ function AppInner() {
           disabled={status === "rate_limited"}
           suggestions={SUGGESTIONS}
         />
-        <KpiSections snapshot={kpis.data} loading={kpis.status === "loading"} />
-        {mapped && mapped.charts.length > 0 ? (
-          <Grid minWidth={280}>
-            {mapped.charts.map((s) => (
-              <MetricBarChart key={s.key} series={s} />
-            ))}
-          </Grid>
-        ) : null}
-        <Grid minWidth={340} alignStart>
-          {mapped?.table && result ? (
-            <PropertyTable title={result.title} columns={mapped.table.columns} rows={mapped.table.rows} />
+        <ResultBlock
+          flashKey={resultSeq}
+          onLayout={(y) => {
+            resultY.current = y;
+          }}
+        >
+          {mapped && mapped.charts.length > 0 ? (
+            <Grid minWidth={280}>
+              {mapped.charts.map((s) => (
+                <MetricBarChart key={s.key} series={s} />
+              ))}
+            </Grid>
           ) : null}
-          <AnswerCard
-            status={status}
-            summary={mapped?.summary ?? null}
-            caveat={result?.caveat ?? null}
-            errorMessage={errorMessage}
-            rowCount={result?.rows.length ?? null}
-            durationMs={result?.duration_ms ?? null}
-            sql={result?.sql ?? null}
-            sqlOpen={sqlOpen}
-            onToggleSql={() => dispatch({ type: "TOGGLE_SQL" })}
-            onResetRateLimit={() => dispatch({ type: "RESET_RATE_LIMIT" })}
-          />
-        </Grid>
+          <Grid minWidth={340} alignStart>
+            {mapped?.table && result ? (
+              <PropertyTable title={result.title} columns={mapped.table.columns} rows={mapped.table.rows} />
+            ) : null}
+            <AnswerCard
+              status={status}
+              summary={mapped?.summary ?? null}
+              caveat={result?.caveat ?? null}
+              errorMessage={errorMessage}
+              rowCount={result?.rows.length ?? null}
+              durationMs={result?.duration_ms ?? null}
+              sql={result?.sql ?? null}
+              sqlOpen={sqlOpen}
+              onToggleSql={() => dispatch({ type: "TOGGLE_SQL" })}
+              onResetRateLimit={() => dispatch({ type: "RESET_RATE_LIMIT" })}
+            />
+          </Grid>
+        </ResultBlock>
+        <KpiSections snapshot={kpis.data} loading={kpis.status === "loading"} />
         <Footer />
       </ScrollView>
       <PropertyPicker
