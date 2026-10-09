@@ -1,12 +1,15 @@
 # innsights-ai
 
-Hospitality analytics demo: ask natural-language questions about a synthetic hotel portfolio; Gemini 3.5 Flash converts them to SQL, Supabase executes them read-only, and the UI renders KPI tiles, charts, and tables.
+Hospitality analytics demo: ask natural-language questions about a synthetic hotel portfolio; Gemini 3.5 Flash converts them to SQL, Supabase executes them read-only, and a dark-mode dashboard renders live KPI tiles (with sparklines), charts, and tables.
+
+Live demo: https://innsights.jonhammond.org
 
 ## Stack
 
 - **DB:** Supabase Postgres — `properties` + `daily_metrics`, nightly `pg_cron` data generator, hardened read-only RPC (`run_hotel_analytics`) behind a privilege-restricted role
 - **API:** Supabase Edge Function `text-to-sql` (Deno) — CORS allow-list, per-IP rate limiting (20/hr), Gemini structured-output, defense-in-depth SQL validation
-- **Frontend (planned):** Expo / React Native Web + victory charts, static export to Vercel
+- **API response:** `{sql, chart, title, rows}` plus `caveat` and `duration_ms`
+- **Frontend:** Expo / React Native Web dark dashboard (KPI row, answer card with bar/line/table, SQL accordion, CSV export) + victory charts, static export on Vercel
 
 ## Local development
 
@@ -30,9 +33,10 @@ curl -s -X POST http://127.0.0.1:54321/functions/v1/text-to-sql \
 ## Status
 
 - ✅ Phase 0 — local Supabase environment
-- ✅ Phase 1 — schema, cron generator, hardened RPC, rate-limit log (local; not yet applied to production)
+- ✅ Phase 1 — schema, cron generator, hardened RPC, rate-limit log
 - ✅ Phase 2 — `text-to-sql` Edge Function (unit-tested + verified end-to-end locally)
-- ✅ Phase 3 — Expo/RN Web frontend (local)
-- ⬜ Phase 4 — Vercel deployment + portfolio iframe embed
+- ✅ Phase 3 — Expo/RN Web frontend
+- ✅ Phase 4 — production deploy (Supabase + Vercel) and portfolio card
+- 🔄 Dark dashboard redesign (branch `redesign/dark-dashboard`; Edge Function deployed, frontend pending merge)
 
 Full plan: [HOSP_DATA_ANALYTICS_APP_PLAN.md](HOSP_DATA_ANALYTICS_APP_PLAN.md)
