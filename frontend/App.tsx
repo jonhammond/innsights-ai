@@ -12,6 +12,7 @@ import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useReducer } from "react";
 import { Platform, ScrollView, View } from "react-native";
+import { Analytics } from "@vercel/analytics/react";
 import { AnswerCard } from "./components/AnswerCard";
 import { MetricBarChart } from "./components/charts/MetricBarChart";
 import { Footer } from "./components/Footer";
@@ -149,6 +150,7 @@ export default function App() {
   return (
     <View style={{ flex: 1, flexDirection: wide ? "row" : "column", backgroundColor: t.bg.page }}>
       <StatusBar style="auto" />
+      {Platform.OS === "web" && <Analytics />}
       <Rail />
       <ScrollView
         style={{ flex: 1 }}
