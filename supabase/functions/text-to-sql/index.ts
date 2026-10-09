@@ -8,7 +8,7 @@ const MAX_PROMPT_CHARS = 500;
 const GEMINI_TIMEOUT_MS = 20_000;
 const RPC_TIMEOUT_MS = 10_000;
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent";
 
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",

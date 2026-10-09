@@ -1,6 +1,6 @@
 # innsights-ai
 
-Hospitality analytics demo: ask natural-language questions about a synthetic hotel portfolio; Gemini 2.5 Flash converts them to SQL, Supabase executes them read-only, and the UI renders KPI tiles, charts, and tables.
+Hospitality analytics demo: ask natural-language questions about a synthetic hotel portfolio; Gemini 3.5 Flash converts them to SQL, Supabase executes them read-only, and the UI renders KPI tiles, charts, and tables.
 
 ## Stack
 
@@ -28,7 +28,7 @@ curl -s -X POST http://127.0.0.1:54321/functions/v1/text-to-sql \
 
 - ✅ Phase 0 — local Supabase environment
 - ✅ Phase 1 — schema, cron generator, hardened RPC, rate-limit log (local; not yet applied to production)
-- ✅ Phase 2 — `text-to-sql` Edge Function (built + unit-tested; live Gemini path pending end-to-end verification)
+- ✅ Phase 2 — `text-to-sql` Edge Function (unit-tested + verified end-to-end locally)
 - ⬜ Phase 3 — Expo/RN Web frontend
 - ⬜ Phase 4 — Vercel deployment + portfolio iframe embed
 

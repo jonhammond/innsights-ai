@@ -2,7 +2,7 @@
 
 ## Project
 
-Hospitality analytics AI demo: natural-language questions → Gemini 2.5 Flash generates SQL → executed read-only in Supabase → KPI tiles / charts / tables. Public (no auth), rate-limited, embedded in a portfolio site via iframe. Plan: `HOSP_DATA_ANALYTICS_APP_PLAN.md` (phases 0–2 done locally; 3 frontend and 4 deploy pending; production DB untouched).
+Hospitality analytics AI demo: natural-language questions → Gemini 3.5 Flash generates SQL → executed read-only in Supabase → KPI tiles / charts / tables. Public (no auth), rate-limited, embedded in a portfolio site via iframe. Plan: `HOSP_DATA_ANALYTICS_APP_PLAN.md` (phases 0–2 done locally; 3 frontend and 4 deploy pending; production DB untouched).
 
 ## Boundaries
 
@@ -20,7 +20,7 @@ Hospitality analytics AI demo: natural-language questions → Gemini 2.5 Flash g
 
 - Local stack: `supabase start` (Docker), then `supabase migration up`; serve the function with `supabase functions serve text-to-sql --env-file supabase/functions/.env`.
 - Deno not installed on host; run `deno check/test/lint/fmt` via the `denoland/deno` Docker image.
-- Gemini: `gemini-2.5-flash` via `generativelanguage.googleapis.com/v1beta`, key in `x-goog-api-key` header, `responseMimeType: application/json` + `responseSchema`.
+- Gemini: `gemini-3.5-flash` via `generativelanguage.googleapis.com/v1beta`, key in `x-goog-api-key` header, `responseMimeType: application/json` + `responseSchema`.
 
 ## Design
 
