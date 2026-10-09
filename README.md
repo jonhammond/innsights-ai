@@ -6,7 +6,7 @@ Live demo: https://innsights.jonhammond.org
 
 ## Stack
 
-- **DB:** Supabase Postgres — `properties` + `daily_metrics`, nightly `pg_cron` data generator, hardened read-only RPC (`run_hotel_analytics`) behind a privilege-restricted role
+- **DB:** Supabase Postgres — `properties` (10 hotels across luxury–midscale segments) + `daily_metrics` (revenue, distribution, departmental cost, comp-set index and guest-experience columns) + `portfolio_daily` view, nightly segment-aware `pg_cron` data generator, hardened read-only RPC (`run_hotel_analytics`) behind a privilege-restricted role
 - **API:** Supabase Edge Function `text-to-sql` (Deno) — CORS allow-list, per-IP rate limiting (20/hr), Gemini structured-output, defense-in-depth SQL validation
 - **API response:** `{sql, chart, title, rows}` plus `caveat` and `duration_ms`
 - **Frontend:** Expo / React Native Web dark dashboard (KPI row, answer card with bar/line/table, SQL accordion, CSV export) + victory charts, static export on Vercel

@@ -17,7 +17,7 @@ import { MetricBarChart } from "./components/charts/MetricBarChart";
 import { Footer } from "./components/Footer";
 import { Grid } from "./components/Grid";
 import { Header } from "./components/Header";
-import { KpiRow } from "./components/KpiRow";
+import { KpiSections } from "./components/KpiRow";
 import { PropertyTable } from "./components/PropertyTable";
 import { QuestionPanel } from "./components/QuestionPanel";
 import { Rail } from "./components/Rail";
@@ -89,6 +89,10 @@ const SUGGESTIONS = [
   "Top property by occupancy",
   "Revenue by property this month",
   "Total revenue yesterday",
+  "Direct booking ratio by property, last 30 days",
+  "CPOR vs ADR by property",
+  "RGI trend, last 60 days",
+  "NPS and CSAT by segment",
 ];
 
 const slug = (s: string) =>
@@ -172,7 +176,7 @@ export default function App() {
           disabled={status === "rate_limited"}
           suggestions={SUGGESTIONS}
         />
-        <KpiRow snapshot={kpis.data} loading={kpis.status === "loading"} />
+        <KpiSections snapshot={kpis.data} loading={kpis.status === "loading"} />
         {mapped && mapped.charts.length > 0 ? (
           <Grid minWidth={280}>
             {mapped.charts.map((s) => (

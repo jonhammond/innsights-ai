@@ -37,6 +37,7 @@ export type Palette = {
     green: string;
     pink: string;
     violet: string;
+    amber: string;
     logo: string;
     statusDot: string;
     link: string;
@@ -44,7 +45,10 @@ export type Palette = {
     ring: string;
   };
   delta: { up: string; down: string; error: string };
-  kpi: Record<"revenue" | "adr" | "revpar" | "occupancy", KpiColors>;
+  kpi: Record<
+    "revenue" | "adr" | "revpar" | "occupancy" | "distribution" | "cost" | "market" | "guest",
+    KpiColors
+  >;
   table: { revenueBar: string; adrBar: string; heat: [string, string, string] };
 };
 
@@ -55,6 +59,7 @@ const accents = {
   green: "#2acc8a",
   pink: "#d6286a",
   violet: "#b9a4ff",
+  amber: "#e0a526",
   logo: "#e13156",
   statusDot: "#23d891",
   ring: "#305eb71f",
@@ -65,6 +70,10 @@ const kpi: Palette["kpi"] = {
   adr: { line: accents.green, glow: "#2acc8a99", bar: accents.green, barPartial: "#2acc8a8c" },
   revpar: { line: accents.violet, glow: "#7b57c8b3", bar: accents.violet, barPartial: "#b9a4ff8c" },
   occupancy: { line: accents.pink, glow: "#d6286ab3", bar: accents.pink, barPartial: "#d6286a8c" },
+  distribution: { line: accents.green, glow: "#2acc8a99", bar: accents.green, barPartial: "#2acc8a8c" },
+  cost: { line: accents.amber, glow: "#e0a526a6", bar: accents.amber, barPartial: "#e0a5268c" },
+  market: { line: accents.violet, glow: "#7b57c8b3", bar: accents.violet, barPartial: "#b9a4ff8c" },
+  guest: { line: accents.pink, glow: "#d6286ab3", bar: accents.pink, barPartial: "#d6286a8c" },
 };
 
 const tableColors: Palette["table"] = {
@@ -154,6 +163,7 @@ export const light: Palette = {
   kpi: {
     ...kpi,
     revpar: { line: "#7b57c8", glow: "#7b57c880", bar: "#7b57c8", barPartial: "#7b57c88c" },
+    market: { line: "#7b57c8", glow: "#7b57c880", bar: "#7b57c8", barPartial: "#7b57c88c" },
   },
   table: tableColors,
 };
