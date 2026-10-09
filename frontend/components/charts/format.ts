@@ -22,6 +22,18 @@ export function formatNumber(v: unknown): string {
   return toNumber(v).toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
+export function formatDecimal(v: number, decimals: number): string {
+  return v.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/** Index values (MPI/ARI/RGI): one decimal, no unit, e.g. 104.2. */
+export function formatIndex(v: number): string {
+  return formatDecimal(v, 1);
+}
+
 export function formatDateTick(v: unknown): string {
   const s = String(v);
   return isDateLike(s) ? `${s.slice(5, 7)}/${s.slice(8, 10)}` : s;
@@ -70,5 +82,5 @@ export function monthLabel(dateStr: string): string {
 }
 
 export function isPercentLikeKey(key: string): boolean {
-  return /occ|pct|percent|rate/i.test(key);
+  return /occ|pct|percent|rate|ratio|share/i.test(key);
 }

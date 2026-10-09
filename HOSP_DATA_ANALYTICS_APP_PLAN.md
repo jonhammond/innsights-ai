@@ -32,23 +32,31 @@ Portfolio demo app: users ask natural-language analytics questions about a synth
 All schema as versioned migrations in `supabase/migrations/`, applied locally first with `supabase migration up`. Production apply via MCP `apply_migration` **only after explicit user confirmation** per migration batch.
 
 **Migration 1 — schema:**
-- `properties(id uuid pk, name, location, total_rooms)` — RLS enabled, `SELECT` policy for `anon`.
+- `properties(id uuid pk, name unique, location, total_rooms, segment, base_adr, market)` — RLS enabled, `SELECT` policy for `anon`. 10 hotels (3 original + 7 added in `20261009192927_portfolio_expansion.sql`).
 - `daily_metrics(id uuid pk, property_id fk, metric_date, rooms_sold, total_revenue, adr generated, occupancy_pct, revpar, UNIQUE(property_id, metric_date))` — RLS enabled, `SELECT` for `anon`. Index on `(property_id, metric_date)`.
+  - Distribution: `bookings, direct_bookings, ota_bookings, gds_bookings, group_bookings, cancellations, avg_booking_window_days`.
+  - Cost: `rooms_cost, fnb_cost, admin_cost, marketing_cost, maintenance_cost, utilities_cost`; generated `total_cost, gop, cpor`.
+  - Market comp-set: `market_occupancy_pct, market_adr, market_revpar`; generated `mpi, ari, rgi`.
+  - Guest: `nps, csat, repeat_guest_pct, rooms_cleaned, housekeeping_hours`.
+  - Derived in SQL / prompt rules: direct booking ratio, channel mix, cancellation rate, flow-through, housekeeping rooms per labor hour.
+- `portfolio_daily` view (security_invoker) — per-day sums and weighted averages across properties; read by the dashboard KPI sections. `SELECT` for `anon`, `authenticated`, `analytics_ro`.
 
 **Migration 2 — data generator + cron:**
-- `generate_daily_hotel_metrics(target_date date default current_date)` — parameterized by date so the same function backfills history and runs nightly. Occupancy 60–95%, ADR $140–250, weekday/weekend variance for realism.
+- `generate_daily_hotel_metrics(target_date date default current_date)` — parameterized by date so the same function backfills history and runs nightly. Occupancy band and ADR (`base_adr` ±15%, weekend uplift) depend on `segment`; `synth_metric_extras()` fills distribution, cost, market and guest columns with segment-driven ranges. Existing rows were backfilled once by the expansion migration.
 - Enable `pg_cron`; `cron.schedule('generate-daily-hotel-data', '0 0 * * *', ...)` calling the function. (Cron only fires in production; local relies on seed.)
 
 **Migration 3 — hardened read-only RPC** (replaces the doc's naive `LIKE 'select%'` version, which is injectable via CTE-wrapped writes, multi-statement payloads, and function-call side effects):
 - Dedicated `analytics_ro` role: `NOLOGIN`, `GRANT SELECT` on the two tables only, no other privileges.
 - `run_hotel_analytics(sql_query text) RETURNS jsonb`, `SECURITY DEFINER`, `SET search_path = public`:
   - Reject semicolons, reject anything not starting with `SELECT`/`WITH`.
+  - Deny-list of settings/context readers (`current_setting`, `pg_settings`, `vault`...), `set_config`, second-string executors (`query_to_xml`...) and file/network functions; mirrored in `sql_guard.ts`.
+  - Scrub `request.headers` / `request.cookies` / `request.jwt.claims` (PostgREST exposes the service_role token there) with `set_config(..., '', true)` before dropping privileges.
   - `SET LOCAL ROLE analytics_ro` before `EXECUTE` — real enforcement is role privileges, not string matching.
   - `SET LOCAL statement_timeout = '5s'`; cap result with an outer `LIMIT 500` wrapper.
   - `GRANT EXECUTE` to `service_role` only (Edge Function calls it); **revoke from `anon`** — clients never execute arbitrary SQL directly.
 - Rate-limit table `ai_query_log(ip_hash, created_at)` + helper to count requests per IP per hour (used by Phase 2).
 
-**Seed (`supabase/seed.sql`):** 3 properties from the doc + 90 days of history via `generate_daily_hotel_metrics(d)` loop. Runs automatically on local `migration up` fresh setups; applied to production as an explicit one-time script (with confirmation).
+**Seed (`supabase/seed.sql`):** 3 original properties (idempotent, `on conflict (name) do nothing`) + 90 days of history via `generate_daily_hotel_metrics(d)` loop. Runs automatically on local `migration up` fresh setups; applied to production as an explicit one-time script (with confirmation).
 
 **Post-apply:** run MCP `get_advisors` (security + performance) on production and resolve findings.
 
@@ -71,7 +79,8 @@ Scaffold inside the repo (`app/` subdirectory or repo root — decide at impleme
 
 **UI modules:**
 - `PromptBar` — text input + submit; loading state.
-- `PresetChips` — 4–6 canned prompts ("RevPAR vs Occupancy, last 30 days", "Top property by occupancy", "Portfolio ADR trend", "Revenue by property this month").
+- Preset chips (`SUGGESTIONS` in `App.tsx`) — 8 canned prompts covering revenue, direct booking ratio, CPOR, RGI trend and NPS/CSAT by segment.
+- KPI sections (`KpiSections`) — Revenue, Distribution, Cost & Profit, Market Index, Guest Experience; collapsible, fed by `portfolio_daily`.
 - `ResultCanvas` — switches on `recommended_chart`: `kpi` → metric tiles; `bar`/`line` → victory charts; `table` → scrollable data grid. Graceful empty/error states.
 - `SqlAccordion` — collapsible display of the generated SQL (the demo's "show your work" feature).
 - Single-screen layout, mobile-responsive (iframe may be narrow).
@@ -88,7 +97,7 @@ Scaffold inside the repo (`app/` subdirectory or repo root — decide at impleme
 
 ## Verification
 
-- **DB (local):** `supabase migration up` clean on fresh local stack; `SELECT count(*) FROM daily_metrics` ≈ 270 (3 props × 90 days); RPC rejects `UPDATE…`, `DROP…`, `WITH x AS (DELETE…)…`, multi-statement input; accepts valid SELECTs.
+- **DB (local):** `supabase migration up` clean on fresh local stack; `SELECT count(*) FROM daily_metrics` ≈ 900 (10 props × 90 days); RPC rejects `UPDATE…`, `DROP…`, `WITH x AS (DELETE…)…`, multi-statement input; accepts valid SELECTs.
 - **Edge Function (local):** curl preset prompts → valid JSON with rows; rate limit returns 429 after threshold; bad prompt → structured error.
 - **Frontend:** `npx expo start --web`; all preset chips render correct visualization type; SQL accordion shows query; error states render.
 - **Production:** after confirmed migration apply — MCP `get_advisors` clean, `execute_sql` sanity counts, deployed function invoked from the Vercel URL, nightly cron verified next day via `cron.job_run_details`.

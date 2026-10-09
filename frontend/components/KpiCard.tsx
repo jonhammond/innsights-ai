@@ -11,14 +11,25 @@ type Props = {
   priorLabel: string | null;
   series: number[];
   colors: KpiColors;
+  /** Invert delta coloring for metrics where a decrease is good (cost, cancellations). */
+  lowerIsBetter?: boolean;
 };
 
 let gradientSeq = 0;
 
-export function KpiCard({ label, value, delta, priorLabel, series, colors }: Props) {
+export function KpiCard({
+  label,
+  value,
+  delta,
+  priorLabel,
+  series,
+  colors,
+  lowerIsBetter = false,
+}: Props) {
   const { t } = useTheme();
   const gid = `kpi-glow-${label.replace(/\W/g, "")}-${++gradientSeq}`;
   const up = delta?.startsWith("+");
+  const good = lowerIsBetter ? !up : up;
   return (
     <View
       style={[
@@ -41,7 +52,7 @@ export function KpiCard({ label, value, delta, priorLabel, series, colors }: Pro
         <Text style={[styles.delta, { color: t.text.subtle }]}>
           {delta ? (
             <>
-              <Text style={{ color: up ? t.delta.up : t.delta.down }}>{delta}</Text>
+              <Text style={{ color: good ? t.delta.up : t.delta.down }}>{delta}</Text>
               {priorLabel ? ` vs ${priorLabel}` : ""}
             </>
           ) : (

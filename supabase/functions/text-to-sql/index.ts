@@ -2,6 +2,7 @@
 // POST { prompt } -> Gemini 2.5 Flash -> validated read-only SQL -> run_hotel_analytics RPC.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { validateSql } from "./sql_guard.ts";
+import { CHARTS, SYSTEM_PROMPT } from "./schema_prompt.ts";
 
 const RATE_LIMIT_PER_HOUR = 20;
 const MAX_PROMPT_CHARS = 500;
@@ -22,31 +23,6 @@ const DEFAULT_ORIGINS = [
   "http://127.0.0.1:8080",
   "http://127.0.0.1:8081",
 ];
-
-const CHARTS = ["bar", "line", "kpi", "table"] as const;
-
-const SYSTEM_PROMPT =
-  `You translate hospitality analytics questions into one read-only PostgreSQL query.
-
-Schema (schema public):
-  properties(id uuid pk, name text, location text, total_rooms int)
-  daily_metrics(id uuid pk, property_id uuid references properties(id), metric_date date,
-    rooms_sold int, total_revenue numeric(10,2), adr numeric(10,2), occupancy_pct numeric(5,2),
-    revpar numeric(10,2), unique(property_id, metric_date))
-  adr = total_revenue / rooms_sold; occupancy_pct is a percentage (0-100); revpar = revenue per available room.
-
-Rules:
-- Output exactly one SELECT or WITH ... SELECT statement. Never end with a semicolon and never use semicolons anywhere.
-- Never use double quotes. Use lowercase unquoted identifiers only. Use single quotes for string literals.
-- Reference only the tables properties and daily_metrics. Read-only; no DDL/DML, no functions with side effects.
-- Join daily_metrics to properties on daily_metrics.property_id = properties.id when property names are needed.
-- Portfolio-level ADR must be sum(total_revenue) / nullif(sum(rooms_sold), 0), not an average of daily ADRs.
-- Portfolio-level occupancy must be sum(rooms_sold) / nullif(sum(total_rooms), 0) * 100 over matching rows; RevPAR = sum(total_revenue) / nullif(sum(total_rooms), 0).
-- Use current_date for relative dates (e.g. last 30 days: metric_date >= current_date - 30).
-- Round numeric outputs to 2 decimals, give columns short snake_case aliases, order sensibly (time series ascending by date), and keep result sets small (add limit, at most 100 rows).
-- recommended_chart: line for time series, bar for category comparisons, kpi for a single-row single-value answer, table otherwise.
-- report_title: a short human-readable title.
-- caveat: optional single sentence a reader needs before trusting the result, e.g. a requested metric is not tracked so a proxy is used, or the period is partial (month-to-date). Leave empty when there is none.`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",

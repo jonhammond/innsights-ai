@@ -1,7 +1,8 @@
-insert into public.properties (name, location, total_rooms) values
-  ('Grand Hyatt Downtown', 'Denver, CO', 350),
-  ('The Ritz Waterfront', 'Miami, FL', 200),
-  ('Courtyard Tech Center', 'Austin, TX', 150);
+insert into public.properties (name, location, total_rooms, segment, base_adr, market) values
+  ('Grand Hyatt Downtown', 'Denver, CO', 350, 'upper_upscale', 250, 'Denver'),
+  ('The Ritz Waterfront', 'Miami, FL', 200, 'luxury', 450, 'Miami'),
+  ('Courtyard Tech Center', 'Austin, TX', 150, 'upscale', 160, 'Austin')
+on conflict (name) do nothing;
 
 do $$
 declare

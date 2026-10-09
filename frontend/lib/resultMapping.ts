@@ -2,6 +2,7 @@ import {
   columnRoles,
   formatCompactCurrency,
   formatCurrency,
+  formatIndex,
   formatNumber,
   formatPercent,
   isDateLike,
@@ -12,8 +13,16 @@ import {
 } from "../components/charts/format";
 import type { QueryResult } from "./api";
 
-export type MetricUnit = "currency" | "percent" | "number";
-export type ColorKey = "revenue" | "adr" | "revpar" | "occupancy";
+export type MetricUnit = "currency" | "percent" | "index" | "number";
+export type ColorKey =
+  | "revenue"
+  | "adr"
+  | "revpar"
+  | "occupancy"
+  | "distribution"
+  | "cost"
+  | "market"
+  | "guest";
 
 export type MetricSeries = {
   key: string;
@@ -40,18 +49,27 @@ function colorFor(key: string, i: number): ColorKey {
   if (/occ/i.test(key)) return "occupancy";
   if (/adr|rate/i.test(key)) return "adr";
   if (/revenue/i.test(key)) return "revenue";
+  if (/cost|cpor|gop/i.test(key)) return "cost";
+  if (/mpi|ari|rgi|market/i.test(key)) return "market";
+  if (/nps|csat|repeat|housekeep/i.test(key)) return "guest";
+  if (/booking|cancel|direct|ota|gds|group|channel/i.test(key)) return "distribution";
   return COLORS[i % COLORS.length];
 }
 
+const INDEX_RE = /(^|[^a-z])(mpi|ari|rgi)([^a-z]|$)|index/i;
+
 function unitFor(key: string): MetricUnit {
+  if (INDEX_RE.test(key)) return "index";
+  if (/pct|percent|ratio|share/i.test(key)) return "percent";
+  if (/revenue|adr|revpar|price|cost|cpor|gop|income/i.test(key)) return "currency";
   if (isPercentLikeKey(key)) return "percent";
-  if (/revenue|adr|revpar|price|cost|income/i.test(key)) return "currency";
   return "number";
 }
 
 export function formatByUnit(v: number, unit: MetricUnit): string {
   if (unit === "percent") return formatPercent(v);
   if (unit === "currency") return Math.abs(v) >= 1000 ? formatCompactCurrency(v) : formatCurrency(v);
+  if (unit === "index") return formatIndex(v);
   return formatNumber(v);
 }
 
