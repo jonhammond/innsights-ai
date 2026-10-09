@@ -1,9 +1,10 @@
 // Supabase Edge Function: text-to-sql
-// POST { prompt } -> Gemini Flash-Lite (GEMINI_MODEL, fallback GEMINI_FALLBACK_MODEL on 429)
+// POST { prompt, property_ids? (UUID[], <=50; scopes SQL to those properties; [] = no rows) } -> Gemini Flash-Lite (GEMINI_MODEL, fallback GEMINI_FALLBACK_MODEL on 429)
 //   -> validated read-only SQL -> run_hotel_analytics RPC.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { validateSql } from "./sql_guard.ts";
 import { CHARTS, SYSTEM_PROMPT } from "./schema_prompt.ts";
+import { parsePropertyIds, scopePrompt } from "./request.ts";
 
 const RATE_LIMIT_PER_HOUR = 20;
 const MAX_PROMPT_CHARS = 500;
@@ -108,14 +109,17 @@ function clientIp(req: Request): string {
   return first || req.headers.get("x-real-ip") || "unknown";
 }
 
-async function readPrompt(req: Request): Promise<string> {
+async function readRequest(
+  req: Request,
+): Promise<{ prompt: string; propertyIds: string[] | null }> {
   let body: unknown;
   try {
     body = await req.json();
   } catch {
     throw new ApiError(400, "invalid_input", "Request body must be valid JSON");
   }
-  const prompt = (body as { prompt?: unknown } | null)?.prompt;
+  const fields = body as { prompt?: unknown; property_ids?: unknown } | null;
+  const prompt = fields?.prompt;
   if (typeof prompt !== "string" || !prompt.trim()) {
     throw new ApiError(
       400,
@@ -130,7 +134,17 @@ async function readPrompt(req: Request): Promise<string> {
       `prompt must be at most ${MAX_PROMPT_CHARS} characters`,
     );
   }
-  return prompt.trim();
+  let propertyIds: string[] | null;
+  try {
+    propertyIds = parsePropertyIds(fields?.property_ids);
+  } catch (err) {
+    throw new ApiError(
+      400,
+      "invalid_input",
+      err instanceof Error ? err.message : "invalid property_ids",
+    );
+  }
+  return { prompt: prompt.trim(), propertyIds };
 }
 
 type GeminiOutput = {
@@ -242,7 +256,7 @@ async function handle(
     throw new ApiError(500, "server_misconfigured", "Server is not configured");
   }
 
-  const prompt = await readPrompt(req);
+  const { prompt, propertyIds } = await readRequest(req);
 
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -283,7 +297,7 @@ async function handle(
 
   // LLM
   const gen = await callGemini(
-    prompt,
+    scopePrompt(prompt, propertyIds),
     geminiKey,
     geminiModel,
     geminiFallbackModel,
