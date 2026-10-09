@@ -14,6 +14,9 @@ Hospitality analytics demo: ask natural-language questions about a synthetic hot
 supabase start                      # local stack (needs Docker)
 supabase migration up               # apply migrations; seed.sql loads on fresh setups
 supabase functions serve text-to-sql --env-file supabase/functions/.env
+
+# frontend (needs frontend/.env, see frontend/.env.example)
+cd frontend && npm install && npx expo start --web   # http://localhost:8081
 ```
 
 `supabase/functions/.env` (gitignored) needs `GEMINI_API_KEY` and `IP_HASH_SALT`; see `supabase/functions/.env.example`. Optional: `ALLOWED_ORIGINS` (comma-separated CORS origins beyond localhost defaults).
@@ -29,7 +32,7 @@ curl -s -X POST http://127.0.0.1:54321/functions/v1/text-to-sql \
 - ✅ Phase 0 — local Supabase environment
 - ✅ Phase 1 — schema, cron generator, hardened RPC, rate-limit log (local; not yet applied to production)
 - ✅ Phase 2 — `text-to-sql` Edge Function (unit-tested + verified end-to-end locally)
-- ⬜ Phase 3 — Expo/RN Web frontend
+- ✅ Phase 3 — Expo/RN Web frontend (local)
 - ⬜ Phase 4 — Vercel deployment + portfolio iframe embed
 
 Full plan: [HOSP_DATA_ANALYTICS_APP_PLAN.md](HOSP_DATA_ANALYTICS_APP_PLAN.md)

@@ -2,7 +2,7 @@
 
 ## Project
 
-Hospitality analytics AI demo: natural-language questions → Gemini 3.5 Flash generates SQL → executed read-only in Supabase → KPI tiles / charts / tables. Public (no auth), rate-limited, embedded in a portfolio site via iframe. Plan: `HOSP_DATA_ANALYTICS_APP_PLAN.md` (phases 0–2 done locally; 3 frontend and 4 deploy pending; production DB untouched).
+Hospitality analytics AI demo: natural-language questions → Gemini 3.5 Flash generates SQL → executed read-only in Supabase → KPI tiles / charts / tables. Public (no auth), rate-limited, embedded in a portfolio site via iframe. Plan: `HOSP_DATA_ANALYTICS_APP_PLAN.md` (phases 0–3 done locally; 4 deploy pending; production DB untouched).
 
 ## Boundaries
 
@@ -14,7 +14,7 @@ Hospitality analytics AI demo: natural-language questions → Gemini 3.5 Flash g
 
 - Supabase Postgres: `properties`, `daily_metrics` (RLS, anon SELECT), `ai_query_log` (rate limiting, service_role only), `pg_cron` nightly generator `generate_daily_hotel_metrics(date)`, seed = 3 properties × 90 days.
 - Edge Function `supabase/functions/text-to-sql/` (Deno): CORS allow-list, salted SHA-256 IP hash, 20 req/hr/IP, Gemini structured JSON output (`{sql, recommended_chart, report_title}`), `sql_guard.ts` validation mirroring the RPC checks. Tests: `deno test` in that directory.
-- Frontend (planned): Expo / React Native Web, `victory` charts, static export to Vercel.
+- Frontend: `frontend/` Expo blank-TS / React Native Web, `victory` charts (imported only in `components/charts/`), design tokens in `frontend/theme/`; static export to Vercel pending.
 
 ## Core
 
