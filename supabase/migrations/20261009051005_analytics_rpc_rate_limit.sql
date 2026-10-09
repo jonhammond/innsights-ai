@@ -45,10 +45,11 @@ begin
   end if;
   -- Deny-list: set_config('role', ...) would undo SET LOCAL ROLE (SET ROLE
   -- permission follows the session user, not the current role), and the
-  -- query_to_xml family executes a second SQL string that would bypass these
+  -- *_to_xml/json family executes a second SQL string that would bypass these
   -- textual checks. The rest are file/network/signal functions with no
-  -- analytics use.
-  if q ~* '\m(set_config|query_to_xml|query_to_json|dblink|pg_sleep|pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|lo_import|lo_export|pg_terminate_backend|pg_cancel_backend|pg_reload_conf)\M' then
+  -- analytics use. Prefix matching (no trailing boundary) so variants like
+  -- table_to_xml_and_xmlschema or pg_ls_waldir are covered.
+  if q ~* '\m(set_config|query_to_xml|query_to_json|table_to_xml|schema_to_xml|database_to_xml|cursor_to_xml|xmltable|ts_stat|ts_rewrite|crosstab|connectby|dblink|pg_sleep|pg_read|pg_ls|pg_stat_file|lo_|pg_terminate_backend|pg_cancel_backend|pg_reload_conf|pg_logical)' then
     raise exception 'query references a disallowed function';
   end if;
 
