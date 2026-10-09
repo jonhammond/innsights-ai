@@ -32,7 +32,7 @@ Portfolio demo app: users ask natural-language analytics questions about a synth
 All schema as versioned migrations in `supabase/migrations/`, applied locally first with `supabase migration up`. Production apply via MCP `apply_migration` **only after explicit user confirmation** per migration batch.
 
 **Migration 1 — schema:**
-- `properties(id uuid pk, name unique, location, total_rooms, segment, base_adr, market)` — RLS enabled, `SELECT` policy for `anon`. 10 hotels (3 original + 7 added in `20261009190000_portfolio_expansion.sql`).
+- `properties(id uuid pk, name unique, location, total_rooms, segment, base_adr, market)` — RLS enabled, `SELECT` policy for `anon`. 10 hotels (3 original + 7 added in `20261009192927_portfolio_expansion.sql`).
 - `daily_metrics(id uuid pk, property_id fk, metric_date, rooms_sold, total_revenue, adr generated, occupancy_pct, revpar, UNIQUE(property_id, metric_date))` — RLS enabled, `SELECT` for `anon`. Index on `(property_id, metric_date)`.
   - Distribution: `bookings, direct_bookings, ota_bookings, gds_bookings, group_bookings, cancellations, avg_booking_window_days`.
   - Cost: `rooms_cost, fnb_cost, admin_cost, marketing_cost, maintenance_cost, utilities_cost`; generated `total_cost, gop, cpor`.
