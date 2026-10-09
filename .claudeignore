@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+.pub-cache/
+.packages
+pubspec.lock
+*.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.flutter-plugins-dependencies
+
+# Exclude packages directory (managed by pubspec.lock)
+.pub/
+
+# Exclude build artifacts and generated files
+build
+.build/
+.buildlog/
+vendor
+.dart_tool
+*.g.dart
+*.freezed.dart
+/ios/.symlinks
+/android/.gradle
+/android/local.properties
+
+# Git internals
+.git/
+# Generated code
+**/*.g.dart
+**/*.freezed.dart
+
+# Native build intermediates
+native/whisper.cpp/build/
+native/**/build/
+
+# Exclude IDE-specific configuration files
+.idea
+.vscode
+*.iml
+
+# Exclude hidden directories
+.*
+
+# Exclude specific files not relevant to core logic
+test/widget_test.dart
+
+# Compiled files
+*.dmg
+*.app
+*.o
+*.a
+*.dylib
+*.so
+*.exe
+
+# Test artifacts
+coverage/
+*.test.db
+
+# System files
+.DS_Store
+*.log
+logs/
+
+# Exclude sensitive information
+.env
+.dart_tool/package_config.json
+
+# Sensitive data
+.env
+*.key
+*.pem
+secrets/
