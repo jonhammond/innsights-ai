@@ -1,16 +1,13 @@
-import { createClient, FunctionsHttpError } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL!,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { persistSession: false, autoRefreshToken: false } },
-);
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 
 export type QueryResult = {
   sql: string;
   chart: "bar" | "line" | "kpi" | "table";
   title: string;
   rows: Record<string, unknown>[];
+  caveat?: string | null;
+  duration_ms?: number;
 };
 
 export class QueryError extends Error {

@@ -42,3 +42,33 @@ export function columnRoles(rows: Row[]): { xKey: string; yKeys: string[] } {
 export function humanize(key: string): string {
   return key.replace(/_/g, " ");
 }
+
+export function formatCurrency(v: number): string {
+  return v.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
+}
+
+export function formatCompactCurrency(v: number): string {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1000) return `${sign}$${Math.round(abs / 1000)}K`;
+  return `${sign}$${abs.toFixed(2)}`;
+}
+
+export function formatPercent(v: number, digits = 1): string {
+  return `${v.toFixed(digits)}%`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function monthLabel(dateStr: string): string {
+  return MONTHS[Number(dateStr.slice(5, 7)) - 1] ?? dateStr;
+}
+
+export function isPercentLikeKey(key: string): boolean {
+  return /occ|pct|percent|rate/i.test(key);
+}
