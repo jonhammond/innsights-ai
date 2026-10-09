@@ -294,15 +294,138 @@ export function kpiDeltas(s: KpiSnapshot) {
   };
 }
 
-export async function fetchKpis(now: Date = new Date()): Promise<KpiSnapshot | null> {
+/** Row shape returned by `daily_metrics` with the `properties(total_rooms)` embed. */
+export type DailyMetricRow = {
+  property_id: string;
+  metric_date: string;
+  rooms_sold: number | string | null;
+  total_revenue: number | string | null;
+  total_cost: number | string | null;
+  gop: number | string | null;
+  bookings: number | string | null;
+  direct_bookings: number | string | null;
+  cancellations: number | string | null;
+  avg_booking_window_days: number | string | null;
+  market_occupancy_pct: number | string | null;
+  market_adr: number | string | null;
+  market_revpar: number | string | null;
+  nps: number | string | null;
+  csat: number | string | null;
+  repeat_guest_pct: number | string | null;
+  rooms_cleaned: number | string | null;
+  housekeeping_hours: number | string | null;
+  properties: { total_rooms: number | string | null } | { total_rooms: number | string | null }[] | null;
+};
+
+const roundTo = (v: number, d: number) => {
+  const f = 10 ** d;
+  return (Math.sign(v) * Math.round(Math.abs(v) * f)) / f;
+};
+
+/** Per-day rollup replicating the `portfolio_daily` view over an arbitrary property subset. */
+export function rollupDaily(rows: DailyMetricRow[]): PortfolioDailyRow[] {
+  const byDate = new Map<string, DailyMetricRow[]>();
+  for (const r of rows) {
+    const g = byDate.get(r.metric_date);
+    if (g) g.push(r);
+    else byDate.set(r.metric_date, [r]);
+  }
+  const out: PortfolioDailyRow[] = [];
+  for (const [date, group] of [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const lines = group.map((r) => {
+      const p = Array.isArray(r.properties) ? r.properties[0] : r.properties;
+      return {
+        rooms: n0(p?.total_rooms),
+        sold: n0(r.rooms_sold),
+        bookings: n0(r.bookings),
+        r,
+      };
+    });
+    const sumOf = (f: (x: (typeof lines)[number]) => number) =>
+      lines.reduce((a, x) => a + f(x), 0);
+    // SQL: round(sum(v * w) / nullif(sum(w), 0), d); null v rows are skipped in the numerator only.
+    const wavg = (
+      val: (x: (typeof lines)[number]) => number | null,
+      w: (x: (typeof lines)[number]) => number,
+      d: number,
+    ): number | null => {
+      const den = sumOf(w);
+      if (den === 0) return null;
+      let num_ = 0;
+      let any = false;
+      for (const x of lines) {
+        const v = val(x);
+        if (v == null) continue;
+        num_ += v * w(x);
+        any = true;
+      }
+      return any ? roundTo(num_ / den, d) : null;
+    };
+    const sumCol = (k: keyof DailyMetricRow) => sumOf((x) => n0(x.r[k]));
+    out.push({
+      metric_date: date,
+      properties: lines.length,
+      available_rooms: sumOf((x) => x.rooms),
+      rooms_sold: sumOf((x) => x.sold),
+      total_revenue: sumCol("total_revenue"),
+      total_cost: sumCol("total_cost"),
+      gop: sumCol("gop"),
+      bookings: sumOf((x) => x.bookings),
+      direct_bookings: sumCol("direct_bookings"),
+      cancellations: sumCol("cancellations"),
+      avg_booking_window_days: wavg((x) => num(x.r.avg_booking_window_days), (x) => x.bookings, 1),
+      market_occupancy_pct: wavg((x) => num(x.r.market_occupancy_pct), (x) => x.rooms, 2),
+      market_adr: wavg((x) => num(x.r.market_adr), (x) => x.sold, 2),
+      market_revpar: wavg((x) => num(x.r.market_revpar), (x) => x.rooms, 2),
+      nps: wavg((x) => num(x.r.nps), (x) => x.sold, 1),
+      csat: wavg((x) => num(x.r.csat), (x) => x.sold, 2),
+      repeat_guest_pct: wavg((x) => num(x.r.repeat_guest_pct), (x) => x.sold, 2),
+      rooms_cleaned: sumCol("rooms_cleaned"),
+      housekeeping_hours: sumCol("housekeeping_hours"),
+    });
+  }
+  return out;
+}
+
+const DAILY_COLUMNS =
+  "property_id,metric_date,rooms_sold,total_revenue,total_cost,gop,bookings,direct_bookings," +
+  "cancellations,avg_booking_window_days,market_occupancy_pct,market_adr,market_revpar,nps,csat," +
+  "repeat_guest_pct,rooms_cleaned,housekeeping_hours,properties(total_rooms)";
+
+const PAGE = 1000;
+
+export async function fetchKpis(
+  propertyIds: string[] | null,
+  now: Date = new Date(),
+): Promise<KpiSnapshot | null> {
+  if (propertyIds && propertyIds.length === 0) return null;
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, 1))
     .toISOString()
     .slice(0, 10);
-  const { data, error } = await supabase
-    .from("portfolio_daily")
-    .select("*")
-    .gte("metric_date", from)
-    .order("metric_date", { ascending: true });
-  if (error) throw error;
-  return aggregateKpis((data ?? []) as PortfolioDailyRow[], now);
+  if (propertyIds === null) {
+    const { data, error } = await supabase
+      .from("portfolio_daily")
+      .select("*")
+      .gte("metric_date", from)
+      .order("metric_date", { ascending: true });
+    if (error) throw error;
+    return aggregateKpis((data ?? []) as PortfolioDailyRow[], now);
+  }
+  // PostgREST caps responses at max_rows (1000); page through with range().
+  const rows: DailyMetricRow[] = [];
+  for (let start = 0; ; start += PAGE) {
+    const { data, error } = await supabase
+      .from("daily_metrics")
+      .select(DAILY_COLUMNS)
+      .in("property_id", propertyIds)
+      .gte("metric_date", from)
+      .order("metric_date", { ascending: true })
+      .order("property_id", { ascending: true })
+      .range(start, start + PAGE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as unknown as DailyMetricRow[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return aggregateKpis(rollupDaily(rows), now);
 }

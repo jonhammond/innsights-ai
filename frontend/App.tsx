@@ -20,13 +20,16 @@ import { Header } from "./components/Header";
 import { KpiSections } from "./components/KpiRow";
 import { PropertyTable } from "./components/PropertyTable";
 import { QuestionPanel } from "./components/QuestionPanel";
+import { PropertyPicker } from "./components/PropertyPicker";
 import { Rail } from "./components/Rail";
 import { QueryError, QueryResult, runQuery } from "./lib/api";
 import { downloadCsv } from "./lib/csv";
 import { fetchKpis, KpiSnapshot } from "./lib/kpis";
+import { fetchProperties, Property } from "./lib/properties";
 import { mapResult } from "./lib/resultMapping";
+import { readStored, writeStored } from "./lib/storage";
 import { space } from "./theme/tokens";
-import { useTheme } from "./theme/useTheme";
+import { ThemeProvider, useTheme } from "./theme/useTheme";
 
 type Status = "idle" | "loading" | "error" | "rate_limited";
 
@@ -37,6 +40,10 @@ type State = {
   result: QueryResult | null;
   sqlOpen: boolean;
   kpis: { status: "loading" | "ready" | "error"; data: KpiSnapshot | null };
+  properties: Property[];
+  propertiesLoaded: boolean;
+  selectedIds: Set<string>;
+  pickerOpen: boolean;
 };
 
 type Action =
@@ -47,7 +54,25 @@ type Action =
   | { type: "TOGGLE_SQL" }
   | { type: "KPIS_LOADED"; data: KpiSnapshot | null }
   | { type: "KPIS_FAILED" }
+  | { type: "KPIS_LOADING" }
+  | { type: "PROPERTIES_LOADED"; properties: Property[] }
+  | { type: "SET_SELECTION"; ids: Set<string> }
+  | { type: "OPEN_PICKER" }
+  | { type: "CLOSE_PICKER" }
   | { type: "RESET_RATE_LIMIT" };
+
+const STORAGE_KEY = "innsights.properties";
+
+function readStoredSelection(): Set<string> | null {
+  const raw = readStored(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) ? new Set(v.filter((x): x is string => typeof x === "string")) : null;
+  } catch {
+    return null;
+  }
+}
 
 const initial: State = {
   question: "",
@@ -56,6 +81,10 @@ const initial: State = {
   result: null,
   sqlOpen: false,
   kpis: { status: "loading", data: null },
+  properties: [],
+  propertiesLoaded: false,
+  selectedIds: readStoredSelection() ?? new Set(),
+  pickerOpen: false,
 };
 
 function reducer(s: State, a: Action): State {
@@ -78,6 +107,21 @@ function reducer(s: State, a: Action): State {
       return { ...s, kpis: { status: "ready", data: a.data } };
     case "KPIS_FAILED":
       return { ...s, kpis: { status: "error", data: null } };
+    case "KPIS_LOADING":
+      return { ...s, kpis: { status: "loading", data: null } };
+    case "PROPERTIES_LOADED": {
+      const known = new Set(a.properties.map((p) => p.id));
+      // Validate persisted selection against the fetched list; fall back to all.
+      const valid = [...s.selectedIds].filter((id) => known.has(id));
+      const selectedIds = new Set(valid.length > 0 ? valid : known);
+      return { ...s, properties: a.properties, propertiesLoaded: true, selectedIds };
+    }
+    case "SET_SELECTION":
+      return { ...s, selectedIds: a.ids };
+    case "OPEN_PICKER":
+      return { ...s, pickerOpen: true };
+    case "CLOSE_PICKER":
+      return { ...s, pickerOpen: false };
     case "RESET_RATE_LIMIT":
       return { ...s, status: "idle", errorMessage: null };
   }
@@ -102,7 +146,15 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, "") || "result";
 
 export default function App() {
-  const { t, wide } = useTheme();
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  );
+}
+
+function AppInner() {
+  const { t, wide, scheme, toggleScheme } = useTheme();
   const [fontsLoaded] = useFonts({
     InstrumentSans_400Regular,
     InstrumentSans_500Medium,
@@ -113,16 +165,39 @@ export default function App() {
   });
   const [state, dispatch] = useReducer(reducer, initial);
   const { question, status, errorMessage, result, sqlOpen, kpis } = state;
+  const { properties, propertiesLoaded, selectedIds, pickerOpen } = state;
+
+  const propertyIds =
+    selectedIds.size === properties.length ? null : [...selectedIds];
+  const idsKey = propertyIds === null ? "*" : [...propertyIds].sort().join(",");
 
   useEffect(() => {
     let cancelled = false;
-    fetchKpis()
-      .then((data) => !cancelled && dispatch({ type: "KPIS_LOADED", data }))
+    fetchProperties()
+      .then((p) => !cancelled && dispatch({ type: "PROPERTIES_LOADED", properties: p }))
       .catch(() => !cancelled && dispatch({ type: "KPIS_FAILED" }));
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!propertiesLoaded) return;
+    writeStored(STORAGE_KEY, JSON.stringify([...selectedIds]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertiesLoaded, idsKey]);
+
+  useEffect(() => {
+    if (!propertiesLoaded) return;
+    let cancelled = false;
+    dispatch({ type: "KPIS_LOADING" });
+    fetchKpis(idsKey === "*" ? null : idsKey === "" ? [] : idsKey.split(","))
+      .then((data) => !cancelled && dispatch({ type: "KPIS_LOADED", data }))
+      .catch(() => !cancelled && dispatch({ type: "KPIS_FAILED" }));
+    return () => {
+      cancelled = true;
+    };
+  }, [propertiesLoaded, idsKey]);
 
   const mapped = useMemo(() => (result ? mapResult(result) : null), [result]);
 
@@ -133,10 +208,14 @@ export default function App() {
   const submit = async (q: string) => {
     const text = q.trim();
     if (!text || status === "loading" || status === "rate_limited") return;
+    if (propertyIds && propertyIds.length === 0) {
+      dispatch({ type: "FAIL", message: "Select at least one property." });
+      return;
+    }
     dispatch({ type: "SET_QUESTION", question: text });
     dispatch({ type: "SUBMIT" });
     try {
-      dispatch({ type: "SUCCESS", result: await runQuery(text) });
+      dispatch({ type: "SUCCESS", result: await runQuery(text, propertyIds) });
     } catch (e) {
       dispatch({
         type: "FAIL",
@@ -152,15 +231,20 @@ export default function App() {
 
   return (
     <View style={{ flex: 1, flexDirection: wide ? "row" : "column", backgroundColor: t.bg.page }}>
-      <StatusBar style="auto" />
-      <Rail />
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <Rail
+        selectedCount={selectedIds.size}
+        onOpenProperties={() => dispatch({ type: "OPEN_PICKER" })}
+        scheme={scheme}
+        onToggleTheme={toggleScheme}
+      />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[{ flexDirection: "column", gap: space.gap }, pad]}
         keyboardShouldPersistTaps="handled"
       >
         <Header
-          propertyCount={kpis.data?.portfolio.propertyCount ?? null}
+          propertyCount={propertiesLoaded ? selectedIds.size : null}
           totalRooms={kpis.data?.portfolio.totalRooms ?? null}
           sqlOpen={sqlOpen}
           canToggleSql={!!result}
@@ -203,6 +287,13 @@ export default function App() {
         </Grid>
         <Footer />
       </ScrollView>
+      <PropertyPicker
+        visible={pickerOpen}
+        properties={properties}
+        selectedIds={selectedIds}
+        onChange={(ids) => dispatch({ type: "SET_SELECTION", ids })}
+        onClose={() => dispatch({ type: "CLOSE_PICKER" })}
+      />
     </View>
   );
 }

@@ -34,9 +34,12 @@ function mapError(code: string): string {
   return "Something went wrong — try again.";
 }
 
-export async function runQuery(prompt: string): Promise<QueryResult> {
+export async function runQuery(
+  prompt: string,
+  propertyIds: string[] | null,
+): Promise<QueryResult> {
   const { data, error } = await supabase.functions.invoke("text-to-sql", {
-    body: { prompt },
+    body: propertyIds ? { prompt, property_ids: propertyIds } : { prompt },
   });
   if (error) {
     let code = "network";
