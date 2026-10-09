@@ -15,9 +15,9 @@ alter table public.properties
 update public.properties p
 set segment = v.segment, base_adr = v.base_adr, market = v.market
 from (values
-  ('Grand Hyatt Downtown',  'upper_upscale', 250::numeric, 'Denver'),
-  ('The Ritz Waterfront',   'luxury',        450::numeric, 'Miami'),
-  ('Courtyard Tech Center', 'upscale',       160::numeric, 'Austin')
+  ('Meridian Grand Downtown', 'upper_upscale', 250::numeric, 'Denver'),
+  ('The Marlowe Waterfront',  'luxury',        450::numeric, 'Miami'),
+  ('Larkspur Tech Center',    'upscale',       160::numeric, 'Austin')
 ) as v (name, segment, base_adr, market)
 where p.name = v.name;
 

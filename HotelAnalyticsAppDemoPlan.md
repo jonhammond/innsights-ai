@@ -46,9 +46,9 @@ CREATE TABLE properties (
 
 -- Seed Initial Hotel Properties
 INSERT INTO properties (name, location, total_rooms) VALUES
-  ('Grand Hyatt Downtown', 'Denver, CO', 350),
-  ('The Ritz Waterfront', 'Miami, FL', 200),
-  ('Courtyard Tech Center', 'Austin, TX', 150);
+  ('Meridian Grand Downtown', 'Denver, CO', 350),
+  ('The Marlowe Waterfront', 'Miami, FL', 200),
+  ('Larkspur Tech Center', 'Austin, TX', 150);
 
 -- Daily Performance Metrics table
 CREATE TABLE daily_metrics (
