@@ -75,15 +75,16 @@ Rules:
 - Never use double quotes. Use lowercase unquoted identifiers only. Use single quotes for string literals.
 - Reference only the tables properties and daily_metrics. Read-only; no DDL/DML, no functions with side effects.
 - Join daily_metrics to properties on daily_metrics.property_id = properties.id when property names are needed.
+- Integer columns (rooms_sold, total_rooms, bookings, direct_bookings, ota_bookings, gds_bookings, group_bookings, cancellations, rooms_cleaned) divide as integers in PostgreSQL. Cast the numerator to numeric before any division: sum(rooms_sold)::numeric / nullif(sum(total_rooms), 0).
 - Portfolio-level ADR must be sum(total_revenue) / nullif(sum(rooms_sold), 0), not an average of daily ADRs.
-- Portfolio-level occupancy must be sum(rooms_sold) / nullif(sum(total_rooms), 0) * 100 over matching rows; RevPAR = sum(total_revenue) / nullif(sum(total_rooms), 0).
-- Direct booking ratio = sum(direct_bookings) / nullif(sum(bookings), 0) * 100. Channel mix = each channel column (direct_bookings, ota_bookings, gds_bookings, group_bookings) / nullif(sum(bookings), 0) * 100. Cancellation rate = sum(cancellations) / nullif(sum(bookings), 0) * 100.
+- Portfolio-level occupancy must be sum(rooms_sold)::numeric / nullif(sum(total_rooms), 0) * 100 over matching rows; RevPAR = sum(total_revenue) / nullif(sum(total_rooms), 0).
+- Direct booking ratio = sum(direct_bookings)::numeric / nullif(sum(bookings), 0) * 100. Channel mix = each channel column (direct_bookings, ota_bookings, gds_bookings, group_bookings) cast to numeric / nullif(sum(bookings), 0) * 100. Cancellation rate = sum(cancellations)::numeric / nullif(sum(bookings), 0) * 100.
 - Booking window is bookings-weighted: sum(avg_booking_window_days * bookings) / nullif(sum(bookings), 0).
 - CPOR (cost per occupied room) over any period = sum(total_cost) / nullif(sum(rooms_sold), 0), never avg(cpor). GOP = sum(gop). Departmental cost breakdown = sum of each *_cost column; GOP margin = sum(gop) / nullif(sum(total_revenue), 0) * 100.
 - Flow-through (%) = (gop_current - gop_prior) / nullif(revenue_current - revenue_prior, 0) * 100 between two periods; build both periods with a CTE or conditional aggregation (e.g. this month vs last month).
-- MPI/ARI/RGI over a period or group = ratio of sums: e.g. MPI = (sum(rooms_sold) / sum(total_rooms)) divided by the room-weighted market occupancy, times 100; likewise ARI and RGI. Acceptable simplification: rooms_sold-weighted averages of mpi/ari/rgi; never a plain avg of daily indexes for portfolio totals. An index above 100 means outperforming the comp set.
+- MPI/ARI/RGI over a period or group = ratio of sums: e.g. MPI = (sum(rooms_sold)::numeric / sum(total_rooms)) divided by the room-weighted market occupancy, times 100; likewise ARI and RGI. Acceptable simplification: rooms_sold-weighted averages of mpi/ari/rgi; never a plain avg of daily indexes for portfolio totals. An index above 100 means outperforming the comp set.
 - NPS, CSAT and repeat guest ratio over a period = rooms_sold-weighted averages: sum(nps * rooms_sold) / nullif(sum(rooms_sold), 0) (same pattern for csat and repeat_guest_pct).
-- Housekeeping efficiency = sum(rooms_cleaned) / nullif(sum(housekeeping_hours), 0) rooms per labor hour (higher is better); minutes per room = 60 / that.
+- Housekeeping efficiency = sum(rooms_cleaned)::numeric / nullif(sum(housekeeping_hours), 0) rooms per labor hour (higher is better); minutes per room = 60 / that.
 - segment and market are valid grouping dimensions; join to properties for them.
 - Use current_date for relative dates (e.g. last 30 days: metric_date >= current_date - 30).
 - Round numeric outputs to 2 decimals, give columns short snake_case aliases, order sensibly (time series ascending by date), and keep result sets small (add limit, at most 100 rows).

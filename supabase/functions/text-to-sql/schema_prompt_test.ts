@@ -21,3 +21,25 @@ Deno.test("CHARTS is bar, line, kpi, table", () => {
     `unexpected CHARTS: ${JSON.stringify(CHARTS)}`,
   );
 });
+
+Deno.test("integer-column divisions in prompt formulas are cast to numeric", () => {
+  assert(
+    SYSTEM_PROMPT.includes("::numeric / nullif(sum(total_rooms), 0)"),
+    "missing numeric cast on occupancy formula",
+  );
+  const intCols = [
+    "rooms_sold",
+    "total_rooms",
+    "bookings",
+    "direct_bookings",
+    "ota_bookings",
+    "gds_bookings",
+    "group_bookings",
+    "cancellations",
+    "rooms_cleaned",
+  ];
+  for (const col of intCols) {
+    const re = new RegExp("sum\\(" + col + "\\)\\s*/");
+    assert(!re.test(SYSTEM_PROMPT), `uncast integer division on ${col}`);
+  }
+});
